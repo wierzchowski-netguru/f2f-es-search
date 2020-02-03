@@ -1,0 +1,62 @@
+version: "3.7"  # 3.4 is minimal version that supports extension-fields
+# x-extension fields
+x-database_env_file: &env_var
+  env_file:
+    - ./conf.env
+
+volumes:
+  es-search-database:
+    name: es-search-database
+  es-search-elasticsearch:
+    name: es-search-elasticsearch
+    driver: local
+
+services:
+  backend:
+    <<: *env_var
+    container_name: backend
+    build: .
+    image: es-search-image
+    volumes:
+      - .:/app/
+    depends_on:
+      - database
+    ports:
+      - 8000:8000
+    command: ash /app/start_backend.sh
+
+  database:
+    <<: *env_var
+    container_name: database
+    image: postgres:11.1
+    volumes:
+      - es-search-database:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
+
+  elasticsearch:
+    image: elasticsearch:7.5.2
+    container_name: elasticsearch
+    environment:
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - http.host=0.0.0.0
+      - transport.host=127.0.0.1
+      - cluster.routing.allocation.disk.threshold_enabled=false
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - es-search-elasticsearch:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+
+#  kibana:
+#    image: kibana:7.5.2
+#    container_name: kibana
+#    environment:
+#      - "ELASTICSEARCH_URL=elasticsearch:9200"
+#    depends_on:
+#      - elasticsearch
+#    ports:
+#      - 5601:5601
